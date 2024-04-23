@@ -33,7 +33,6 @@ class LocalJob(Job):
             self.resources.job_script,
             _out=self.resources.log,
             _err=self.resources.log,
-            _tee=(sys.stdout, sys.stderr),
             _bg=True,
         )
         self.status = "RUNNING"

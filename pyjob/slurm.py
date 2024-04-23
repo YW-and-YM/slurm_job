@@ -1,5 +1,6 @@
 """For slurm related code"""
 
+import datetime
 import json
 from dataclasses import asdict, dataclass
 from functools import wraps
@@ -156,38 +157,35 @@ class SlurmJob(Job):
 
     def __init__(
         self,
-        function_call: Any,
+        function_call: FunctionCall,
         script_template: str = TEMPLATE,
+        timeout: datetime.timedelta = datetime.timedelta(minutes=10),
         options: SlurmOptions = SlurmOptions(),
     ):
-        super().__init__(function_call, script_template)
+        super().__init__(function_call, script_template, timeout)
         self.options = options
 
     def submit(self) -> int:
         """Submit the job."""
         job = Slurm(self.options.to_dict())
         job_id = job.sbatch(f"bash {self.resources.job_script}")
-        self.status = "RUNNING"
+        self.status.set_start()
+        self.id = job_id
         return job_id
 
-    def run(self) -> Any:
-        """Run the job."""
-        job = Slurm(self.options.to_dict())
-        self.status = "RUNNING"
-        job.srun(f"bash {self.resources.job_script}")
-        return self._load_return()
 
-
-def slurm_job(options: SlurmOptions = SlurmOptions()):
+def slurm_job(
+    options: SlurmOptions = SlurmOptions(),
+    script_template: str = TEMPLATE,
+    timeout: datetime.timedelta = datetime.timedelta(minutes=10),
+):
     """Decorator to submit a function as a Slurm job."""
 
     def decorator(func: Callable):
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             function_call = FunctionCall(func, args, kwargs)
-            job = SlurmJob(function_call, options=options)
-            job_id = job.submit()
-            print(f"Submitted Slurm job with ID: {job_id}")
+            job = SlurmJob(function_call, script_template, timeout, options)
             return job.run()
 
         return wrapper

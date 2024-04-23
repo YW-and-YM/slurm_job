@@ -3,6 +3,7 @@ Simple interface to execute python functions locally
 (This does not do anything special, just as an example of how to extend Job class)
 """
 
+import datetime
 import sys
 from functools import wraps
 from typing import Callable
@@ -15,18 +16,23 @@ from pyjob.core import TEMPLATE, FunctionCall, Job
 class LocalJob(Job):
     """Class to manage a local job."""
 
-    def __init__(self, function_call: FunctionCall, script_template: str = TEMPLATE):
-        super().__init__(function_call, TEMPLATE)
+    def __init__(
+        self,
+        function_call: FunctionCall,
+        script_template: str = TEMPLATE,
+        timeout: datetime.timedelta = datetime.timedelta(minutes=10),
+    ):
+        super().__init__(function_call, script_template, timeout)
 
     def run(self):
-        self.status = "RUNNING"
+        self.status.set_start()
         sh.Command("bash")(
             self.resources.job_script,
             _out=self.resources.log,
             _err=self.resources.log,
-            _tee=(sys.stdout, sys.stderr),
+            _tee=(sys.stdout, sys.stderr),  # duplicate output to stdout and stderr
         )
-        return self._load_return()
+        return self.result()
 
     def submit(self) -> int:
         proc = sh.Command("bash")(
@@ -35,8 +41,9 @@ class LocalJob(Job):
             _err=self.resources.log,
             _bg=True,
         )
-        self.status = "RUNNING"
-        return proc.pid  # type: ignore # pylint: disable=no-member
+        self.status.set_start()
+        self.id = proc.pid  # type: ignore # pylint: disable=no-member
+        return self.id
 
 
 def local_job():

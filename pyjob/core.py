@@ -1,12 +1,13 @@
 """Base classes for managing jobs on the cluster."""
 
+import datetime
 import json
 import shutil
 import tempfile
 from dataclasses import asdict, dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, Union
 
 import cloudpickle
 
@@ -92,18 +93,74 @@ class JobAssets:
         return json.dumps(asdict(self), indent=2)
 
 
-JobStatus = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+@dataclass
+class JobStatus:
+    status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+    create_time: datetime.datetime
+    start_time: Union[datetime.datetime, None]
+    end_time: Union[datetime.datetime, None]
+    timeout: datetime.timedelta = datetime.timedelta(minutes=10)
+
+    def set_start(self) -> None:
+        """Set the start time of the job."""
+        self.start_time = datetime.datetime.now()
+        self.status = "RUNNING"
+
+    def set_end(self, success: bool = True) -> None:
+        """Set the end time of the job."""
+        self.end_time = datetime.datetime.now()
+        self.status = "COMPLETED" if success else "FAILED"
+
+    def is_timeout(self) -> bool:
+        """Check if the job has timed out."""
+        if self.start_time is None:
+            return False
+        return datetime.datetime.now() - self.start_time > self.timeout
 
 
 class Job:
     """Class to manage a job on the cluster."""
 
-    def __init__(self, function_call: FunctionCall, script_template: str = TEMPLATE):
+    def __init__(
+        self,
+        function_call: FunctionCall,
+        script_template: str = TEMPLATE,
+        timeout: datetime.timedelta = datetime.timedelta(minutes=10),
+        assets_root: Union[str, Path, None] = None,
+    ):
+        """
+        Initialize the job.
+
+        Args:
+            function_call (FunctionCall): Function call to be executed.
+            script_template (str, optional): Template for job script. Defaults to TEMPLATE.
+            timeout (datetime.timedelta, optional): Timeout for the job. Defaults to 10 minutes.
+            assets_root (Path, optional): Root directory for job assets. Defaults to None.
+                Leave as None to use a temporary directory.
+                User is responsible for cleaning up the directory if set.
+        """
         self.function_call = function_call
         self.script_template = script_template
-        self.resources = JobAssets(root=Path(tempfile.mkdtemp()))
+        self.status: JobStatus = JobStatus("PENDING", datetime.datetime.now(), None, None, timeout)
+        self.save_assets = False
+
+        if isinstance(assets_root, str):
+            assets_root = Path(assets_root)
+
+        # if assets_root is specified, check if it does not exist or is an empty directory
+        if assets_root and assets_root.exists():
+            if not assets_root.is_dir():
+                raise ValueError(f"{assets_root} is not a directory")
+            if list(assets_root.iterdir()):
+                raise ValueError(f"{assets_root} is not empty")
+            self.save_assets = True  # Save assets to the specified directory
+
+        # Create assets
+        self.resources = JobAssets(assets_root or Path(tempfile.mkdtemp()))
         self.resources.create(self.function_call, self.script_template)
-        self.status: JobStatus = "PENDING"
+
+        self.assets_root = assets_root
+        self.id: Any = None
 
     @property
     def name(self) -> str:
@@ -112,21 +169,38 @@ class Job:
 
     def _load_return(self) -> Any:
         """Load the return value of the job."""
+        if not self.resources.return_dump.exists():
+            raise FileNotFoundError(f"Return dump {self.resources.return_dump} not found")
+
         ret = cloudpickle.loads(self.resources.return_dump.read_bytes())
-        self.resources.clean_up()
+
+        # Clean up assets if not saving them
+        if not self.save_assets:
+            self.resources.clean_up()
+
+        # Raise the same exception that was raised in the job
         if isinstance(ret, Exception):
-            self.status = "FAILED"
+            self.status.set_end(False)
             raise ret
-        self.status = "COMPLETED"
+
+        self.status.set_end(True)
         return ret
 
     def run(self) -> Any:
         """Run the job and return the result."""
-        raise NotImplementedError("Method run must be implemented in a subclass")
+        self.submit()
+        return self.result()
 
     def result(self) -> Any:
         """Return the result of the job."""
         while True:
+            if self.status.is_timeout():
+                self.status.set_end(False)
+                if not self.save_assets:
+                    self.resources.clean_up()
+                raise TimeoutError(
+                    f"Job {self.name} timed out after {self.status.timeout.seconds} seconds"
+                )
             if self.resources.return_dump.exists():
                 break
         return self._load_return()
@@ -136,4 +210,5 @@ class Job:
         raise NotImplementedError("Method submit must be implemented in a subclass")
 
     def __del__(self):
-        self.resources.clean_up()
+        if not self.save_assets:
+            self.resources.clean_up()

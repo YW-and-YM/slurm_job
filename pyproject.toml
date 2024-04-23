@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "pyjob"
+version = "0.1.0"
+description = ""
+authors = ["Yibo Wei <david_wyb2001@outlook.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+simple-slurm = "^0.2.7"
+cloudpickle = "^3.0.0"
+sh = "^2.0.6"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+pylint = "^3.1.0"
+black = "^24.4.0"
+pyright = "^1.1.359"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

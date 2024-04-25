@@ -156,6 +156,11 @@ class SlurmJob(Job):
     ):
         super().__init__(function_call, script_template, timeout, assets_root)
         self.options = options
+        self.name = self.function_call.func.__name__
+        if not self.options.job_name:
+            self.options.job_name = self.name
+        else:
+            self.name = self.options.job_name
         self.listener_target_dir = listener_target_dir
 
     def submit(self) -> int:

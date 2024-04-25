@@ -8,7 +8,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Optional, TextIO
+from typing import Any, Callable, Optional, TextIO, Union
 
 import sh
 from simple_slurm import Slurm
@@ -150,16 +150,17 @@ class SlurmJob(Job):
         function_call: FunctionCall,
         script_template: str = TEMPLATE,
         timeout: datetime.timedelta = datetime.timedelta(minutes=10),
+        assets_root: Union[str, Path, None] = None,
         options: SlurmOptions = SlurmOptions(),
         listener_target_dir: Optional[Path] = None,
     ):
-        super().__init__(function_call, script_template, timeout)
+        super().__init__(function_call, script_template, timeout, assets_root)
         self.options = options
         self.listener_target_dir = listener_target_dir
 
     def submit(self) -> int:
         """Submit the job."""
-        has_sbatch = bool(sh.Command("which")("fuck", _ok_code=[0, 1]))
+        has_sbatch = bool(sh.Command("which")("sbatch", _ok_code=[0, 1]))
         job = Slurm(**self.options.to_dict())
         job.add_cmd(f"bash {self.resources.job_script}")
         if has_sbatch:
@@ -204,6 +205,7 @@ def slurm_job(
     options: SlurmOptions = SlurmOptions(),
     script_template: str = TEMPLATE,
     timeout: datetime.timedelta = datetime.timedelta(minutes=10),
+    assets_root: Union[str, Path, None] = None,
 ):
     """Decorator to submit a function as a Slurm job."""
 
@@ -211,7 +213,7 @@ def slurm_job(
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             function_call = FunctionCall(func, args, kwargs)
-            job = SlurmJob(function_call, script_template, timeout, options)
+            job = SlurmJob(function_call, script_template, timeout, assets_root, options)
             return job.run()
 
         return wrapper

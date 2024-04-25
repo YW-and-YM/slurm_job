@@ -4,12 +4,17 @@ import datetime
 import json
 import shutil
 import tempfile
+import threading
+import time
 from dataclasses import asdict, dataclass, field
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Literal, Union
 
 import cloudpickle
+import sh
+
+END_OF_JOB = "JOBEND"
 
 TEMPLATE = """#!/bin/bash
 
@@ -68,6 +73,12 @@ class JobAssets:
         self.return_dump = self.root / "ret.pkl"
         self.log = self.root / "log.txt"
 
+        self.root = self.root.absolute()
+        self.job_script = self.job_script.absolute()
+        self.function_call_dump = self.function_call_dump.absolute()
+        self.return_dump = self.return_dump.absolute()
+        self.log = self.log.absolute()
+
     def create(self, function_call: FunctionCall, script_template: str) -> None:
         """
         Create the job assets.
@@ -118,6 +129,41 @@ class JobStatus:
         return datetime.datetime.now() - self.start_time > self.timeout
 
 
+def tail_output(file_path: Path, end_pattern: str = END_OF_JOB) -> threading.Event:
+    """
+    Tail the output of a file in a separate thread.
+
+    Args:
+        file_path (Path): Path to the file to tail.
+        end_pattern (str, optional): Pattern to signal the end of the output. Defaults to "JOBEND".
+
+    Returns:
+        threading.Event: Event to signal when the tail output has finished.
+    """
+    finished_event = threading.Event()
+
+    def tail_thread():
+        # Wait for the file to exist
+        while not file_path.exists():
+            time.sleep(0.1)
+
+        # Tail the file
+        for line in sh.Command("tail")("-f", file_path, _iter=True):  # type: ignore
+            assert isinstance(line, str)
+            if line.strip() == end_pattern.strip():
+                break
+            print(line, end="")
+
+        # Signal that the tail output has finished
+        finished_event.set()
+
+    # Start the tail thread
+    thread = threading.Thread(target=tail_thread)
+    thread.start()
+
+    return finished_event
+
+
 class Job:
     """Class to manage a job on the cluster."""
 
@@ -156,7 +202,7 @@ class Job:
             self.save_assets = True  # Save assets to the specified directory
 
         # Create assets
-        self.resources = JobAssets(assets_root or Path(tempfile.mkdtemp()))
+        self.resources = JobAssets(assets_root or Path(tempfile.mkdtemp(dir=".")))
         self.resources.create(self.function_call, self.script_template)
 
         self.assets_root = assets_root

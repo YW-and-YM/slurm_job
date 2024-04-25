@@ -4,11 +4,12 @@ import datetime
 import json
 from dataclasses import asdict, dataclass
 from functools import wraps
+from pathlib import Path
 from typing import Any, Callable, Optional, TextIO
 
 from simple_slurm import Slurm
 
-from pyjob.core import TEMPLATE, FunctionCall, Job
+from pyjob.core import TEMPLATE, FunctionCall, Job, tail_output
 
 
 @dataclass
@@ -167,11 +168,27 @@ class SlurmJob(Job):
 
     def submit(self) -> int:
         """Submit the job."""
-        job = Slurm(self.options.to_dict())
+        job = Slurm(**self.options.to_dict())
         job_id = job.sbatch(f"bash {self.resources.job_script}")
         self.status.set_start()
         self.id = job_id
         return job_id
+
+    def run(self) -> Any:
+        """Run the job and return the result."""
+        self.submit()
+        if self.options.output:
+            output_file = Path(self.options.output)
+        else:
+            output_file = Path(f"slurm-{self.id}.out")
+        if output_file.exists():
+            output_file.unlink()  # remove the file if it already exists
+        finished_event = tail_output(output_file)
+        result = self.result()
+
+        finished_event.wait()
+
+        return result
 
 
 def slurm_job(

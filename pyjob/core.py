@@ -18,7 +18,7 @@ END_OF_JOB = "JOBEND"
 
 TEMPLATE = """#!/bin/bash
 
-python << EOT
+python << EOF
 import sys
 import cloudpickle
 from pathlib import Path
@@ -31,8 +31,33 @@ try:
     ret_path.write_bytes(cloudpickle.dumps(ret))
 except Exception as e:
     ret_path.write_bytes(cloudpickle.dumps(e))
-EOT
+    raise e
+EOF
+
+echo JOBEND
 """
+
+
+@dataclass
+class Template:
+    """Class to manage a template."""
+
+    python_script: str
+    interpreter: str = "/bin/bash"
+    python_exec: str = "python"
+    before: str = ""
+    after: str = ""
+
+    def create(self) -> str:
+        """Create the template."""
+        return (
+            f"#!{self.interpreter}\n"
+            f"{self.before}\n"
+            f"{self.python_exec} << EOT\n"
+            f"{self.python_script}\n"
+            "EOT\n"
+            f"{self.after}\n"
+        )
 
 
 @dataclass

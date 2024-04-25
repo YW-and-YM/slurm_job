@@ -32,7 +32,7 @@ XENON_SLURM_TEMPLATE = """#!/bin/bash
 unset X509_CERT_DIR
 if [ "$INSTALL_CUTAX" == "1" ]; then unset CUTAX_LOCATION; fi
 module load singularity
-singularity exec --bind {bind} {singularity_dir}/{image} python << EOT
+singularity exec --bind {bind} {singularity_dir}/{image} python << EOF
 import sys
 import cloudpickle
 from pathlib import Path
@@ -44,9 +44,10 @@ try:
     ret_path.write_bytes(cloudpickle.dumps(ret))
 except Exception as e:
     ret_path.write_bytes(cloudpickle.dumps(e))
-finally:
-    print("\\nJOBEND")
-EOT
+    raise e
+EOF
+
+echo JOBEND
 """
 
 

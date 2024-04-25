@@ -16,9 +16,8 @@ import sh
 
 END_OF_JOB = "JOBEND"
 
-TEMPLATE = """#!/bin/bash
 
-python << EOF
+PYTHON_SCRIPT = """
 import sys
 import cloudpickle
 from pathlib import Path
@@ -32,9 +31,6 @@ try:
 except Exception as e:
     ret_path.write_bytes(cloudpickle.dumps(e))
     raise e
-EOF
-
-echo JOBEND
 """
 
 
@@ -42,22 +38,25 @@ echo JOBEND
 class Template:
     """Class to manage a template."""
 
-    python_script: str
+    python_script: str = PYTHON_SCRIPT
     interpreter: str = "/bin/bash"
     python_exec: str = "python"
     before: str = ""
-    after: str = ""
+    after: str = "echo JOBEND"
 
-    def create(self) -> str:
-        """Create the template."""
+    def __str__(self) -> str:
         return (
             f"#!{self.interpreter}\n"
             f"{self.before}\n"
-            f"{self.python_exec} << EOT\n"
+            f"{self.python_exec} << EOF\n"
             f"{self.python_script}\n"
-            "EOT\n"
+            "EOF\n"
             f"{self.after}\n"
         )
+
+    def format(self, **kwargs) -> str:
+        """Format the template."""
+        return str(self).format(**kwargs)
 
 
 @dataclass
@@ -195,7 +194,7 @@ class Job:
     def __init__(
         self,
         function_call: FunctionCall,
-        script_template: str = TEMPLATE,
+        script_template: str = str(Template()),
         timeout: datetime.timedelta = datetime.timedelta(minutes=10),
         assets_root: Union[str, Path, None] = None,
     ):
@@ -204,7 +203,7 @@ class Job:
 
         Args:
             function_call (FunctionCall): Function call to be executed.
-            script_template (str, optional): Template for job script. Defaults to TEMPLATE.
+            script_template (str, optional): Template for job script. Defaults to str(Template()).
             timeout (datetime.timedelta, optional): Timeout for the job. Defaults to 10 minutes.
             assets_root (Path, optional): Root directory for job assets. Defaults to None.
                 Leave as None to use a temporary directory.

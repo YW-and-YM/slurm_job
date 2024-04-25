@@ -2,6 +2,8 @@
 
 import getpass
 
+from pyjob.core import Template
+
 USER = getpass.getuser()
 BIND = {
     "default": ",".join(
@@ -27,28 +29,15 @@ SINGULARITY_DIR = {
     "dali": "/dali/lgrandi/xenonnt/singularity-images",
 }
 
-XENON_SLURM_TEMPLATE = """#!/bin/bash
 
-unset X509_CERT_DIR
-if [ "$INSTALL_CUTAX" == "1" ]; then unset CUTAX_LOCATION; fi
-module load singularity
-singularity exec --bind {bind} {singularity_dir}/{image} python << EOF
-import sys
-import cloudpickle
-from pathlib import Path
-func = cloudpickle.loads(Path("{pickle_path}").read_bytes())
-ret_path = Path("{ret_path}")
-
-try:
-    ret = func()
-    ret_path.write_bytes(cloudpickle.dumps(ret))
-except Exception as e:
-    ret_path.write_bytes(cloudpickle.dumps(e))
-    raise e
-EOF
-
-echo JOBEND
-"""
+XENON_SLURM_TEMPLATE = Template(
+    before=(
+        "unset X509_CERT_DIR\n"
+        'if [ "$INSTALL_CUTAX" == "1" ]; then unset CUTAX_LOCATION; fi\n'
+        "module load singularity\n"
+    ),
+    python_exec="singularity exec --bind {bind} {singularity_dir}/{image} python",
+)
 
 
 def xenon_template(singularity_image, is_dali=False):

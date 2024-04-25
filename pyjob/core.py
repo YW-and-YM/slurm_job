@@ -153,7 +153,7 @@ class JobStatus:
         return datetime.datetime.now() - self.start_time > self.timeout
 
 
-def tail_output(file_path: Path, end_pattern: str = END_OF_JOB) -> threading.Event:
+def tail_output(file_path: Path, name: str = "", end_pattern: str = END_OF_JOB) -> threading.Event:
     """
     Tail the output of a file in a separate thread.
 
@@ -176,6 +176,7 @@ def tail_output(file_path: Path, end_pattern: str = END_OF_JOB) -> threading.Eve
             assert isinstance(line, str)
             if line.strip() == end_pattern.strip():
                 break
+            line = f"{name} | {line}"
             print(line, end="")
 
         # Signal that the tail output has finished

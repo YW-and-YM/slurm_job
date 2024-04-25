@@ -193,7 +193,7 @@ class SlurmJob(Job):
             output_file = Path(f"slurm-{self.id}.out")
         if output_file.exists():
             output_file.unlink()  # remove the file if it already exists
-        finished_event = tail_output(output_file)
+        finished_event = tail_output(output_file, f"slurm-{self.id}-{self.name}")
         result = self.result()
 
         finished_event.wait()

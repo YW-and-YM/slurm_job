@@ -235,12 +235,8 @@ class Job:
         self.resources.create(self.function_call, self.script_template)
 
         self.assets_root = assets_root
+        self.name: str = self.function_call.func.__name__
         self.id: Any = None
-
-    @property
-    def name(self) -> str:
-        """Return the name of the job."""
-        return self.function_call.func.__name__
 
     def _load_return(self) -> Any:
         """Load the return value of the job."""

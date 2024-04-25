@@ -2,14 +2,20 @@
 
 import datetime
 import json
+import logging
+import time
+import uuid
 from dataclasses import asdict, dataclass
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Optional, TextIO
 
+import sh
 from simple_slurm import Slurm
 
 from pyjob.core import TEMPLATE, FunctionCall, Job, tail_output
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -118,39 +124,22 @@ class SlurmOptions:  # pylint: disable=too-many-instance-attributes
 
     @classmethod
     def loads(cls, data: dict[str, Any]) -> "SlurmOptions":
-        """
-        Load options from a dictionary.
-
-        Args:
-            data (dict[str, Any]): dictionary with options
-
-        Returns:
-            SlurmOptions: instance with the options
-        """
+        """Load options from a dictionary."""
         return cls(**data)
 
     @classmethod
     def load(cls, file: TextIO) -> "SlurmOptions":
-        """
-        Load options from a file.
-
-        Args:
-            file (TextIO): file with the options
-
-        Returns:
-            SlurmOptions: instance with the options
-        """
+        """Load options from a file."""
         data = json.load(file)
         return cls.loads(data)
 
     def to_dict(self) -> dict[str, Any]:
-        """
-        Convert the options to a dictionary.
-
-        Returns:
-            Dict[str, Any]: dictionary with the options
-        """
+        """Convert the options to a dictionary."""
         return {k: v for k, v in asdict(self).items() if v is not None}
+
+
+class SlurmError(Exception):
+    """Exception raised for errors in the slurm job."""
 
 
 class SlurmJob(Job):
@@ -162,17 +151,37 @@ class SlurmJob(Job):
         script_template: str = TEMPLATE,
         timeout: datetime.timedelta = datetime.timedelta(minutes=10),
         options: SlurmOptions = SlurmOptions(),
+        listener_target_dir: Optional[Path] = None,
     ):
         super().__init__(function_call, script_template, timeout)
         self.options = options
+        self.listener_target_dir = listener_target_dir
 
     def submit(self) -> int:
         """Submit the job."""
+        has_sbatch = bool(sh.Command("which")("fuck", _ok_code=[0, 1]))
         job = Slurm(**self.options.to_dict())
-        job_id = job.sbatch(f"bash {self.resources.job_script}")
-        self.status.set_start()
-        self.id = job_id
-        return job_id
+        job.add_cmd(f"bash {self.resources.job_script}")
+        if has_sbatch:
+            self.id = job.sbatch()
+            self.status.set_start()
+        else:
+            target_dir = self.listener_target_dir or Path("slurm_jobs")
+            if self.listener_target_dir and not self.listener_target_dir.exists():
+                target_dir.mkdir(parents=True)
+            elif self.listener_target_dir and not self.listener_target_dir.is_dir():
+                raise ValueError(f"{self.listener_target_dir} is not a directory")
+            # generate a unique filename
+            script_file = target_dir / f"slurm-{uuid.uuid4()}.sh"
+            script_file.write_text(job.script(), encoding="utf-8")
+            id_file = script_file.with_suffix(".id")
+            while not id_file.exists():
+                time.sleep(0.5)
+            self.id = int(id_file.read_text(encoding="utf-8").strip())
+            id_file.unlink()
+            if self.id < 1:
+                raise SlurmError(f"Error submitting job:\n{job.script()}")
+        return self.id
 
     def run(self) -> Any:
         """Run the job and return the result."""
@@ -208,3 +217,27 @@ def slurm_job(
         return wrapper
 
     return decorator
+
+
+def slurm_job_listener(target_dir: Path = Path("slurm_jobs"), poll_interval: int = 1):
+    """Listener for slurm jobs in the target directory."""
+    if not target_dir.exists():
+        target_dir.mkdir(parents=True)
+    print("Starting slurm job listener")
+    while True:
+        for file in target_dir.iterdir():
+            if not file.is_file() or not file.suffix == ".sh":
+                continue
+            print(f"Submitting {file}")
+            job_id = 0
+            id_file = file.with_suffix(".id")
+            try:
+                job_id = int(sh.Command("sbatch")(file).split()[-1])  # type: ignore
+                print("Submitted job", job_id, "for", file)
+            except sh.ErrorReturnCode as e:
+                print(e.stderr)
+            finally:
+                id_file.write_text(str(job_id))
+                file.unlink()
+
+        time.sleep(poll_interval)

@@ -13,7 +13,7 @@ from typing import Any, Callable, Optional, TextIO, Union
 import sh
 from simple_slurm import Slurm
 
-from pyjob.core import TEMPLATE, FunctionCall, Job, tail_output
+from pyjob.core import FunctionCall, Job, Template, tail_output
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +148,7 @@ class SlurmJob(Job):
     def __init__(
         self,
         function_call: FunctionCall,
-        script_template: str = TEMPLATE,
+        script_template: Union[str, Template] = Template(),
         timeout: datetime.timedelta = datetime.timedelta(minutes=10),
         assets_root: Union[str, Path, None] = None,
         options: SlurmOptions = SlurmOptions(),
@@ -203,7 +203,7 @@ class SlurmJob(Job):
 
 def slurm_job(
     options: SlurmOptions = SlurmOptions(),
-    script_template: str = TEMPLATE,
+    script_template: Union[str, Template] = Template(),
     timeout: datetime.timedelta = datetime.timedelta(minutes=10),
     assets_root: Union[str, Path, None] = None,
 ):

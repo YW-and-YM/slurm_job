@@ -103,7 +103,7 @@ class JobAssets:
         self.return_dump = self.return_dump.absolute()
         self.log = self.log.absolute()
 
-    def create(self, function_call: FunctionCall, script_template: str) -> None:
+    def create(self, function_call: FunctionCall, script_template: Union[str, Template]) -> None:
         """
         Create the job assets.
 
@@ -188,13 +188,17 @@ def tail_output(file_path: Path, end_pattern: str = END_OF_JOB) -> threading.Eve
     return finished_event
 
 
+class JobFailedError(Exception):
+    """Error raised when a job fails."""
+
+
 class Job:
     """Class to manage a job on the cluster."""
 
     def __init__(
         self,
         function_call: FunctionCall,
-        script_template: str = str(Template()),
+        script_template: Union[str, Template] = Template(),
         timeout: datetime.timedelta = datetime.timedelta(minutes=10),
         assets_root: Union[str, Path, None] = None,
     ):
@@ -251,7 +255,9 @@ class Job:
         # Raise the same exception that was raised in the job
         if isinstance(ret, Exception):
             self.status.set_end(False)
-            raise ret
+            raise JobFailedError(
+                f"Job {self.name} with id {self.id} failed with exception: {ret}"
+            ) from ret
 
         self.status.set_end(True)
         return ret

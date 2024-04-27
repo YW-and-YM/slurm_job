@@ -6,11 +6,11 @@ Simple interface to execute python functions locally
 import datetime
 import sys
 from functools import wraps
-from typing import Callable
+from typing import Callable, Union
 
 import sh
 
-from pyjob.core import TEMPLATE, FunctionCall, Job
+from pyjob.core import FunctionCall, Job, Template
 
 
 class LocalJob(Job):
@@ -19,7 +19,7 @@ class LocalJob(Job):
     def __init__(
         self,
         function_call: FunctionCall,
-        script_template: str = TEMPLATE,
+        script_template: Union[str, Template] = Template(),
         timeout: datetime.timedelta = datetime.timedelta(minutes=10),
     ):
         super().__init__(function_call, script_template, timeout)

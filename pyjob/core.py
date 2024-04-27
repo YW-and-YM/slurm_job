@@ -159,6 +159,7 @@ def tail_output(file_path: Path, name: str = "", end_pattern: str = END_OF_JOB) 
 
     Args:
         file_path (Path): Path to the file to tail.
+        name (str, optional): Name to prefix each line of the output. Defaults to "".
         end_pattern (str, optional): Pattern to signal the end of the output. Defaults to "JOBEND".
 
     Returns:

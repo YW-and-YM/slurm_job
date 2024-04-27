@@ -226,25 +226,31 @@ def slurm_job(
     return decorator
 
 
-def slurm_job_listener(target_dir: Path = Path("slurm_jobs"), poll_interval: int = 1):
+def slurm_job_listener(target_dir: Path = Path("slurm_jobs"), poll_interval: int = 1) -> None:
     """Listener for slurm jobs in the target directory."""
     if not target_dir.exists():
         target_dir.mkdir(parents=True)
-    print("Starting slurm job listener")
-    while True:
-        for file in target_dir.iterdir():
-            if not file.is_file() or not file.suffix == ".sh":
-                continue
-            print(f"Submitting {file}")
-            job_id = 0
-            id_file = file.with_suffix(".id")
-            try:
-                job_id = int(sh.Command("sbatch")(file).split()[-1])  # type: ignore
-                print("Submitted job", job_id, "for", file)
-            except sh.ErrorReturnCode as e:
-                print(e.stderr)
-            finally:
-                id_file.write_text(str(job_id))
-                file.unlink()
+    print(
+        "Listening for slurm jobs in", target_dir, "with poll interval", poll_interval, "seconds..."
+    )
+    try:
+        while True:
+            for file in target_dir.iterdir():
+                if not file.is_file() or not file.suffix == ".sh":
+                    continue
+                print(f"Submitting {file}")
+                job_id = 0
+                id_file = file.with_suffix(".id")
+                try:
+                    job_id = int(sh.Command("sbatch")(file).split()[-1])  # type: ignore
+                    print("Submitted job", job_id, "for", file)
+                except sh.ErrorReturnCode as e:
+                    print(e.stderr)
+                finally:
+                    id_file.write_text(str(job_id))
+                    file.unlink()
 
-        time.sleep(poll_interval)
+            time.sleep(poll_interval)
+    except KeyboardInterrupt:
+        print("Stopping slurm job listener")
+        return

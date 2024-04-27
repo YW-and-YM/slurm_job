@@ -13,6 +13,7 @@ from typing import Any, Callable, Literal, Union
 
 import cloudpickle
 import sh
+from rich.console import Console
 
 END_OF_JOB = "JOBEND"
 
@@ -172,7 +173,13 @@ def tail_output(file_path: Path, name: str = "", end_pattern: str = END_OF_JOB) 
     """
     finished_event = threading.Event()
 
+    # Define a list of colors for each thread
+    colors = ["cyan", "magenta", "yellow", "green", "blue", "red"]
+
     def tail_thread():
+        # Get the color for the current thread
+        thread_color = colors[threading.get_ident() - 1 % len(colors)]
+
         # Wait for the file to exist
         while not file_path.exists():
             time.sleep(0.1)
@@ -183,7 +190,8 @@ def tail_output(file_path: Path, name: str = "", end_pattern: str = END_OF_JOB) 
             if line.strip() == end_pattern.strip():
                 break
             line = f"{name} | {line}"
-            print(line, end="")
+            console = Console()
+            console.print(line, end="", style=f"bold {thread_color}")
 
         # Signal that the tail output has finished
         finished_event.set()

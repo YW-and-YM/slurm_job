@@ -111,11 +111,14 @@ class JobAssets:
             function_call (FunctionCall): Function call to be executed.
             script_template (str): Template for the job script.
         """
+        self.root.chmod(0o700)
         self.job_script.write_text(
             script_template.format(pickle_path=self.function_call_dump, ret_path=self.return_dump),
             encoding="utf-8",
         )
+        self.job_script.chmod(0o500)
         function_call.dump(self.function_call_dump)
+        self.function_call_dump.chmod(0o400)
 
     def clean_up(self):
         """

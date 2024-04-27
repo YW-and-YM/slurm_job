@@ -31,6 +31,8 @@ try:
 except Exception as e:
     ret_path.write_bytes(cloudpickle.dumps(e))
     raise e
+finally:
+    ret_path.chmod(0o400)
 """
 
 

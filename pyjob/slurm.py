@@ -1,15 +1,14 @@
 """For slurm related code"""
 
 import datetime
-import json
 import logging
 import time
 import uuid
-from dataclasses import asdict, dataclass
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Optional, TextIO, Union
+from typing import Any, Callable, Optional, TypedDict, Union
 
+import rich
 import sh
 from simple_slurm import Slurm
 
@@ -18,124 +17,108 @@ from pyjob.core import FunctionCall, Job, Template, tail_output
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class SlurmOptions:  # pylint: disable=too-many-instance-attributes
-    """Class to manage slurm options."""
+class SlurmOptions(TypedDict, total=False):
+    """Type definition for Slurm options."""
 
-    account: Optional[str] = None
-    acctg_freq: Optional[str] = None
-    array: Optional[str] = None
-    batch: Optional[str] = None
-    bb: Optional[str] = None
-    bbf: Optional[str] = None
-    begin: Optional[str] = None
-    chdir: Optional[str] = None
-    cluster_constraint: Optional[str] = None
-    clusters: Optional[str] = None
-    comment: Optional[str] = None
-    constraint: Optional[str] = None
-    container: Optional[str] = None
-    container_id: Optional[str] = None
-    contiguous: bool = False
-    core_spec: Optional[int] = None
-    cores_per_socket: Optional[int] = None
-    cpu_freq: Optional[str] = None
-    cpus_per_gpu: Optional[int] = None
-    cpus_per_task: Optional[int] = None
-    deadline: Optional[str] = None
-    delay_boot: Optional[int] = None
-    dependency: Optional[str] = None
-    distribution: Optional[str] = None
-    error: Optional[str] = None
-    exclude: Optional[str] = None
-    exclusive: Optional[str] = None
-    export: Optional[str] = None
-    export_file: Optional[str] = None
-    extra: Optional[str] = None
-    extra_node_info: Optional[str] = None
-    get_user_env: Optional[str] = None
-    gid: Optional[str] = None
-    gpu_bind: Optional[str] = None
-    gpu_freq: Optional[str] = None
-    gpus: Optional[str] = None
-    gpus_per_node: Optional[str] = None
-    gpus_per_socket: Optional[str] = None
-    gpus_per_task: Optional[str] = None
-    gres: Optional[str] = None
-    gres_flags: Optional[str] = None
-    hold: bool = False
-    ignore_pbs: bool = False
-    input: Optional[str] = None
-    job_name: Optional[str] = None
-    kill_on_invalid_dep: Optional[str] = None
-    licenses: Optional[str] = None
-    mail_type: Optional[str] = None
-    mail_user: Optional[str] = None
-    mcs_label: Optional[str] = None
-    mem: Optional[str] = None
-    mem_bind: Optional[str] = None
-    mem_per_cpu: Optional[str] = None
-    mem_per_gpu: Optional[str] = None
-    mincpus: Optional[int] = None
-    network: Optional[str] = None
-    nice: Optional[int] = None
-    no_kill: bool = False
-    no_requeue: bool = False
-    nodefile: Optional[str] = None
-    nodelist: Optional[str] = None
-    nodes: Optional[str] = None
-    ntasks: Optional[int] = None
-    ntasks_per_core: Optional[int] = None
-    ntasks_per_gpu: Optional[int] = None
-    ntasks_per_node: Optional[int] = None
-    ntasks_per_socket: Optional[int] = None
-    open_mode: Optional[str] = None
-    output: Optional[str] = None
-    overcommit: bool = False
-    partition: Optional[str] = None
-    power: Optional[str] = None
-    prefer: Optional[str] = None
-    priority: Optional[str] = None
-    profile: Optional[str] = None
-    propagate: Optional[str] = None
-    qos: Optional[str] = None
-    quiet: bool = False
-    reboot: bool = False
-    requeue: bool = False
-    reservation: Optional[str] = None
-    signal: Optional[str] = None
-    sockets_per_node: Optional[int] = None
-    spread_job: bool = False
-    switches: Optional[str] = None
-    test_only: bool = False
-    thread_spec: Optional[int] = None
-    threads_per_core: Optional[int] = None
-    time: Optional[str] = None
-    time_min: Optional[str] = None
-    tmp: Optional[str] = None
-    tres_per_task: Optional[str] = None
-    uid: Optional[str] = None
-    use_min_nodes: bool = False
-    verbose: bool = False
-    wait: bool = False
-    wait_all_nodes: Optional[int] = None
-    wckey: Optional[str] = None
-    wrap: Optional[str] = None
-
-    @classmethod
-    def loads(cls, data: dict[str, Any]) -> "SlurmOptions":
-        """Load options from a dictionary."""
-        return cls(**data)
-
-    @classmethod
-    def load(cls, file: TextIO) -> "SlurmOptions":
-        """Load options from a file."""
-        data = json.load(file)
-        return cls.loads(data)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the options to a dictionary."""
-        return {k: v for k, v in asdict(self).items() if v is not None}
+    account: str
+    acctg_freq: str
+    array: str
+    batch: str
+    bb: str
+    bbf: str
+    begin: str
+    chdir: str
+    cluster_constraint: str
+    clusters: str
+    comment: str
+    constraint: str
+    container: str
+    container_id: str
+    contiguous: bool
+    core_spec: int
+    cores_per_socket: int
+    cpu_freq: str
+    cpus_per_gpu: int
+    cpus_per_task: int
+    deadline: str
+    delay_boot: int
+    dependency: str
+    distribution: str
+    error: str
+    exclude: str
+    exclusive: str
+    export: str
+    export_file: str
+    extra: str
+    extra_node_info: str
+    get_user_env: str
+    gid: str
+    gpu_bind: str
+    gpu_freq: str
+    gpus: str
+    gpus_per_node: str
+    gpus_per_socket: str
+    gpus_per_task: str
+    gres: str
+    gres_flags: str
+    hold: bool
+    ignore_pbs: bool
+    input: str
+    job_name: str
+    kill_on_invalid_dep: str
+    licenses: str
+    mail_type: str
+    mail_user: str
+    mcs_label: str
+    mem: str
+    mem_bind: str
+    mem_per_cpu: str
+    mem_per_gpu: str
+    mincpus: int
+    network: str
+    nice: int
+    no_kill: bool
+    no_requeue: bool
+    nodefile: str
+    nodelist: str
+    nodes: str
+    ntasks: int
+    ntasks_per_core: int
+    ntasks_per_gpu: int
+    ntasks_per_node: int
+    ntasks_per_socket: int
+    open_mode: str
+    output: str
+    overcommit: bool
+    partition: str
+    power: str
+    prefer: str
+    priority: str
+    profile: str
+    propagate: str
+    qos: str
+    quiet: bool
+    reboot: bool
+    requeue: bool
+    reservation: str
+    signal: str
+    sockets_per_node: int
+    spread_job: bool
+    switches: str
+    test_only: bool
+    thread_spec: int
+    threads_per_core: int
+    time: str
+    time_min: str
+    tmp: str
+    tres_per_task: str
+    uid: str
+    use_min_nodes: bool
+    verbose: bool
+    wait: bool
+    wait_all_nodes: int
+    wckey: str
+    wrap: str
 
 
 class SlurmError(Exception):
@@ -156,23 +139,19 @@ class SlurmJob(Job):
     ):
         super().__init__(function_call, script_template, timeout, assets_root)
         self.options = options
-        self.name = self.function_call.func.__name__
-        if not self.options.job_name:
-            self.options.job_name = self.name
-        else:
-            self.name = self.options.job_name
+        self.name = self.options.get("job_name", self.function_call.func.__name__)
         self.listener_target_dir = listener_target_dir
 
     def submit(self) -> int:
         """Submit the job."""
         has_sbatch = bool(sh.Command("which")("sbatch", _ok_code=[0, 1]))
-        job = Slurm(**self.options.to_dict())
+        job = Slurm(**self.options)
         job.add_cmd(f"bash {self.resources.job_script}")
         if has_sbatch:
             self.id = job.sbatch()
             self.status.set_start()
         else:
-            target_dir = self.listener_target_dir or Path("slurm_jobs")
+            target_dir = self.listener_target_dir or Path("slurm_jobs/listener")
             if self.listener_target_dir and not self.listener_target_dir.exists():
                 target_dir.mkdir(parents=True)
             elif self.listener_target_dir and not self.listener_target_dir.is_dir():
@@ -192,10 +171,7 @@ class SlurmJob(Job):
     def run(self) -> Any:
         """Run the job and return the result."""
         self.submit()
-        if self.options.output:
-            output_file = Path(self.options.output)
-        else:
-            output_file = Path(f"slurm-{self.id}.out")
+        output_file = Path(self.options.get("output", f"slurm-{self.id}.out"))
         if output_file.exists():
             output_file.unlink()  # remove the file if it already exists
         finished_event = tail_output(output_file, f"slurm-{self.id}-{self.name}")
@@ -230,7 +206,7 @@ def slurm_job_listener(target_dir: Path = Path("slurm_jobs"), poll_interval: int
     """Listener for slurm jobs in the target directory."""
     if not target_dir.exists():
         target_dir.mkdir(parents=True)
-    print(
+    rich.print(
         "Listening for slurm jobs in", target_dir, "with poll interval", poll_interval, "seconds..."
     )
     try:
@@ -238,19 +214,19 @@ def slurm_job_listener(target_dir: Path = Path("slurm_jobs"), poll_interval: int
             for file in target_dir.iterdir():
                 if not file.is_file() or not file.suffix == ".sh":
                     continue
-                print(f"Submitting {file}")
+                rich.print(f"Submitting {file}")
                 job_id = 0
                 id_file = file.with_suffix(".id")
                 try:
                     job_id = int(sh.Command("sbatch")(file).split()[-1])  # type: ignore
-                    print("Submitted job", job_id, "for", file)
+                    rich.print("Submitted job", job_id, "for", file)
                 except sh.ErrorReturnCode as e:
-                    print(e.stderr)
+                    rich.print(e.stderr)
                 finally:
                     id_file.write_text(str(job_id))
                     file.unlink()
 
             time.sleep(poll_interval)
     except KeyboardInterrupt:
-        print("Stopping slurm job listener")
+        rich.print("Stopping slurm job listener")
         return

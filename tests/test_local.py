@@ -5,6 +5,7 @@ import time
 
 import pytest
 
+from pyjob.core import JobFailedError
 from pyjob.local import FunctionCall, LocalJob, local_job
 
 
@@ -18,11 +19,9 @@ def test_job():
     job = LocalJob(function_call)
     assert job.status.status == "PENDING"
     assert job.name == "add"
-    assert job.resources.root.exists()
     ret = job.run()
     assert ret == 3
     assert job.status.status == "COMPLETED"
-    assert not job.resources.root.exists()
 
 
 def test_job_failed():
@@ -35,11 +34,10 @@ def test_job_failed():
     job = LocalJob(function_call)
     assert job.status.status == "PENDING"
     assert job.name == "fail"
-    assert job.resources.root.exists()
-    with pytest.raises(ValueError):
+    with pytest.raises(JobFailedError):
         job.run()
     assert job.status.status == "FAILED"
-    assert not job.resources.root.exists()
+    assert not job.return_path.exists()
 
 
 def test_timeout():
@@ -52,11 +50,10 @@ def test_timeout():
     job = LocalJob(function_call, timeout=datetime.timedelta(seconds=1))
     assert job.status.status == "PENDING"
     assert job.name == "wait"
-    assert job.resources.root.exists()
-    with pytest.raises(TimeoutError):
+    with pytest.raises(JobFailedError):
         job.run()
     assert job.status.status == "FAILED"
-    assert not job.resources.root.exists()
+    assert not job.return_path.exists()
 
 
 def test_submit():
@@ -73,7 +70,6 @@ def test_submit():
     job = LocalJob(function_call)
     assert job.status.status == "PENDING"
     assert job.name == "wait"
-    assert job.resources.root.exists()
     pid = job.submit()
     assert isinstance(pid, int) and pid > 0
     assert job.status.status == "RUNNING"
@@ -85,7 +81,6 @@ def test_submit():
     job = LocalJob(function_call)
     assert job.status.status == "PENDING"
     assert job.name == "no_wait"
-    assert job.resources.root.exists()
     pid = job.submit()
     assert isinstance(pid, int) and pid > 0
     assert job.status.status == "RUNNING"

@@ -12,7 +12,8 @@ import rich
 import sh
 from simple_slurm import Slurm
 
-from pyjob.core import FunctionCall, Job, Template, tail_output
+from pyjob.core import FunctionCall, Job, Template
+from pyjob.utils import tail_output
 
 logger = logging.getLogger(__name__)
 
@@ -133,11 +134,10 @@ class SlurmJob(Job):
         function_call: FunctionCall,
         script_template: Union[str, Template] = Template(),
         timeout: datetime.timedelta = datetime.timedelta(minutes=10),
-        assets_root: Union[str, Path, None] = None,
         options: SlurmOptions = SlurmOptions(),
         listener_target_dir: Optional[Path] = None,
     ):
-        super().__init__(function_call, script_template, timeout, assets_root)
+        super().__init__(function_call, script_template, timeout)
         self.options = options
         self.name = self.options.get("job_name", self.function_call.func.__name__)
         self.listener_target_dir = listener_target_dir
@@ -146,7 +146,7 @@ class SlurmJob(Job):
         """Submit the job."""
         has_sbatch = bool(sh.Command("which")("sbatch", _ok_code=[0, 1]))
         job = Slurm(**self.options)
-        job.add_cmd(f"bash {self.resources.job_script}")
+        job.add_cmd("bash", "-c", self.script)
         if has_sbatch:
             self.id = job.sbatch()
             self.status.set_start()
@@ -186,7 +186,6 @@ def slurm_job(
     options: SlurmOptions = SlurmOptions(),
     script_template: Union[str, Template] = Template(),
     timeout: datetime.timedelta = datetime.timedelta(minutes=10),
-    assets_root: Union[str, Path, None] = None,
 ):
     """Decorator to submit a function as a Slurm job."""
 
@@ -194,7 +193,7 @@ def slurm_job(
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             function_call = FunctionCall(func, args, kwargs)
-            job = SlurmJob(function_call, script_template, timeout, assets_root, options)
+            job = SlurmJob(function_call, script_template, timeout, options)
             return job.run()
 
         return wrapper

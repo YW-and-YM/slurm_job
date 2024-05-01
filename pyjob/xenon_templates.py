@@ -47,6 +47,6 @@ def xenon_template(singularity_image, is_dali=False):
         bind=BIND[key],
         singularity_dir=SINGULARITY_DIR[key],
         image=singularity_image,
-        pickle_path="{pickle_path}",
+        pickle_base64="{pickle_base64}",
         ret_path="{ret_path}",
     )

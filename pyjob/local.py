@@ -4,11 +4,10 @@ Simple interface to execute python functions locally
 """
 
 import datetime
+import subprocess
 import sys
 from functools import wraps
 from typing import Callable, Union
-
-import sh
 
 from pyjob.core import FunctionCall, Job, Template
 
@@ -24,25 +23,10 @@ class LocalJob(Job):
     ):
         super().__init__(function_call, script_template, timeout)
 
-    def run(self):
-        self.status.set_start()
-        sh.Command("bash")(
-            self.resources.job_script,
-            _out=self.resources.log,
-            _err=self.resources.log,
-            _tee=(sys.stdout, sys.stderr),  # duplicate output to stdout and stderr
-        )
-        return self.result()
-
     def submit(self) -> int:
-        proc = sh.Command("bash")(
-            self.resources.job_script,
-            _out=self.resources.log,
-            _err=self.resources.log,
-            _bg=True,
-        )
+        proc = subprocess.Popen(self.script, shell=True, stdout=sys.stdout, stderr=sys.stderr)
         self.status.set_start()
-        self.id = proc.pid  # type: ignore # pylint: disable=no-member
+        self.id = proc.pid
         return self.id
 
 

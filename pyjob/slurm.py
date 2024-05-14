@@ -11,6 +11,8 @@ from typing import Any, Callable, Optional, TypedDict, Union
 import rich
 import sh
 from simple_slurm import Slurm
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from pyjob.core import FunctionCall, Job, Template
 from pyjob.utils import tail_output
@@ -201,31 +203,37 @@ def slurm_job(
     return decorator
 
 
-def slurm_job_listener(target_dir: Path = Path("slurm_jobs"), poll_interval: int = 1) -> None:
-    """Listener for slurm jobs in the target directory."""
+class SlurmJobHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if not event.is_directory and event.src_path.endswith(".sh"):
+            file = Path(event.src_path)
+            rich.print(f"Submitting {file}")
+            job_id = 0
+            id_file = file.with_suffix(".id")
+            try:
+                job_id = int(sh.Command("sbatch")(file).split()[-1])  # type: ignore
+                rich.print("Submitted job", job_id, "for", file)
+            except sh.ErrorReturnCode as e:
+                rich.print(e.stderr)
+            finally:
+                id_file.write_text(str(job_id), encoding="utf-8")
+                file.unlink()
+
+
+def watch_slurm_jobs(target_dir: Path = Path("slurm_jobs")) -> None:
+    """Watching slurm jobs in the target directory using watchdog."""
     if not target_dir.exists():
         target_dir.mkdir(parents=True)
-    rich.print(
-        "Listening for slurm jobs in", target_dir, "with poll interval", poll_interval, "seconds..."
-    )
+    rich.print("Listening for slurm jobs in", target_dir, "using watchdog...")
+
+    event_handler = SlurmJobHandler()
+    observer = Observer()
+    observer.schedule(event_handler, str(target_dir), recursive=False)
+    observer.start()
+
     try:
         while True:
-            for file in target_dir.iterdir():
-                if not file.is_file() or not file.suffix == ".sh":
-                    continue
-                rich.print(f"Submitting {file}")
-                job_id = 0
-                id_file = file.with_suffix(".id")
-                try:
-                    job_id = int(sh.Command("sbatch")(file).split()[-1])  # type: ignore
-                    rich.print("Submitted job", job_id, "for", file)
-                except sh.ErrorReturnCode as e:
-                    rich.print(e.stderr)
-                finally:
-                    id_file.write_text(str(job_id))
-                    file.unlink()
-
-            time.sleep(poll_interval)
+            time.sleep(1)
     except KeyboardInterrupt:
-        rich.print("Stopping slurm job listener")
-        return
+        observer.stop()
+    observer.join()

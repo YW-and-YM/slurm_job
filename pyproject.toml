@@ -11,6 +11,7 @@ simple-slurm = "^0.2.7"
 cloudpickle = "^3.0.0"
 sh = "^2.0.6"
 rich = "^13.7.1"
+watchdog = "^4.0.0"
 
 
 [tool.poetry.group.dev.dependencies]

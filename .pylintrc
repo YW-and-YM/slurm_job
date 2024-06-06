@@ -1,2 +1,2 @@
 [MASTER]
-disable=missing-class-docstring,too-few-public-methods
+disable=missing-class-docstring,too-few-public-methods,too-many-arguments

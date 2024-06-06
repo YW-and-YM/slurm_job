@@ -118,7 +118,7 @@ class Job:
         self.function_call = function_call
         self.script_template = script_template
         self.timeout = timeout
-        self.status: JobStatus = JobStatus("PENDING", datetime.datetime.now(), None, None)
+        self.status = JobStatus("PENDING", datetime.datetime.now(), None, None)
         self.return_path = Path(tempfile.mktemp(dir="./", prefix="ret_"))
         self.name: str = self.function_call.func.__name__
         self.id: Any = None
@@ -153,8 +153,9 @@ class Job:
             self.submit()
             return self.result()
         except Exception as e:
-            self.cleanup()
             raise e
+        finally:
+            self.cleanup()
 
     def result(self) -> Any:
         """Return the result of the job."""

@@ -1,5 +1,6 @@
 """For slurm related code"""
 
+import argparse
 import datetime
 import logging
 import time
@@ -11,7 +12,7 @@ from typing import Any, Callable, Optional, TypedDict, Union
 import rich
 import sh
 from simple_slurm import Slurm
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from pyjob.core import FunctionCall, Job, Template
@@ -204,7 +205,7 @@ def slurm_job(
 
 
 class SlurmJobHandler(FileSystemEventHandler):
-    def on_created(self, event):
+    def on_created(self, event: FileSystemEvent) -> None:
         if not event.is_directory and event.src_path.endswith(".sh"):
             file = Path(event.src_path)
             rich.print(f"Submitting {file}")
@@ -237,3 +238,13 @@ def watch_slurm_jobs(target_dir: Path = Path("slurm_jobs")) -> None:
     except KeyboardInterrupt:
         observer.stop()
     observer.join()
+
+
+def main() -> None:
+    """Entry point for the command line interface."""
+
+    parser = argparse.ArgumentParser(description="Submit a function as a Slurm job")
+    parser.add_argument("directory", type=Path, help="Directory to watch for slurm jobs")
+    args = parser.parse_args()
+
+    watch_slurm_jobs(args.directory)

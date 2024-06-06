@@ -8,7 +8,7 @@ A simple library to run any python function as a job, designed for XENONnT exper
 pip install https://github.com/Microwave-WYB/pyjob.git
 ```
 
-## Usage
+## Usage (For XENONnT users)
 
 ### Basic usage:
 
@@ -16,10 +16,10 @@ pip install https://github.com/Microwave-WYB/pyjob.git
 import datetime
 
 from pyjob.slurm import SlurmOptions
-from pyjob.xenon_slurm import slurm_job
+from pyjob.xenon_slurm import xenon_job
 
 
-@slurm_job(
+@xenon_job(
     options=SlurmOptions(
         partition="xenon1t", time="10:00", mem_per_cpu="100M", cpus_per_task=1, output="job.out"
     ),
@@ -44,14 +44,25 @@ Return: 3
 ```
 Where `slurm` describes the type of job, `40125577` is the job id, `add` is the function name, and `3` is the return value.
 
+Check [here](./pyjob/slurm.py) for all available options. The options are equivalent to the options in the `sbatch` command. Refer to the [Slurm documentation](https://slurm.schedmd.com/sbatch.html) for more details.
+
 ### Error handling:
 
 Error during job execution will raise an JobFailedError exception. Complete error trace will be printed to the log file.
 
 ```python
-@slurm_job(options=options, script_template=template, timeout=datetime.timedelta(seconds=60))
+@xenon_job(
+    options=SlurmOptions(
+        partition="xenon1t", time="10:00", mem_per_cpu="100M", cpus_per_task=1, output="job.out"
+    ),
+    singularity_image="xenonnt-2024.04.1.simg",
+    is_dali=False,
+    timeout=datetime.timedelta(seconds=100),
+    wait=False,
+)
 def fail():
     raise ValueError("This job will fail")
+
 
 fail()
 ```
@@ -81,6 +92,77 @@ Traceback (most recent call last):
   File "/home/yuem/pyjob/pyjob/core.py", line 143, in _load_return
     raise JobFailedError(
 pyjob.core.JobFailedError: Job fail with id 40125621 failed with exception: This job will fail
+```
+
+### Define custom decorator:
+
+Defining a custom decorator is useful when you want to use the same set of options for multiple functions.
+This simplifies the code and makes it easier to maintain.
+
+```python
+import datetime
+from functools import partial
+
+from pyjob.slurm import SlurmOptions
+from pyjob.xenon_slurm import xenon_job
+
+my_job = partial(
+    xenon_job,
+    options=SlurmOptions(
+        partition="xenon1t", time="10:00", mem_per_cpu="100M", cpus_per_task=1, output="job.out"
+    ),
+    singularity_image="xenonnt-2024.04.1.simg",
+    is_dali=False,
+)
+
+@my_job(timeout=datetime.timedelta(seconds=100))
+def add(a, b):
+    print("Adding:", a, b)
+    return a + b
+
+"""
+The above code is equivalent to:
+
+@xenon_job(
+    options=SlurmOptions(
+        partition="xenon1t", time="10:00", mem_per_cpu="100M", cpus_per_task=1, output="job.out"
+    ),
+    singularity_image="xenonnt-2024.04.1.simg",
+    is_dali=False,
+    timeout=datetime.timedelta(seconds=100),
+)
+"""
+```
+
+Or, if you don't need any decorator options, you can define a simple decorator:
+
+```python
+my_job = xenon_job(
+    options=SlurmOptions(
+        partition="xenon1t", time="10:00", mem_per_cpu="100M", cpus_per_task=1, output="job.out"
+    ),
+    singularity_image="xenonnt-2024.04.1.simg",
+    is_dali=False,
+    timeout=datetime.timedelta(seconds=100),
+)
+
+@my_job
+def add(a, b):
+    print("Adding:", a, b)
+    return a + b
+
+"""
+The above code is equivalent to:
+
+@xenon_job(
+    options=SlurmOptions(
+        partition="xenon1t", time="10:00", mem_per_cpu="100M", cpus_per_task=1, output="job.out"
+    ),
+    singularity_image="xenonnt-2024.04.1.simg",
+    is_dali=False,
+    timeout=datetime.timedelta(seconds=100),
+)
+"""
 ```
 
 ### Advanced usage (with Jupiter notebook started as a Slurm job):

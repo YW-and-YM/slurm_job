@@ -5,8 +5,8 @@ import getpass
 from pathlib import Path
 from typing import Any, Callable, Union
 
-from pyjob.core import Template
-from pyjob.slurm import SlurmOptions, slurm_job
+from slurm_job.core import Template
+from slurm_job.slurm import SlurmOptions, slurm_job
 
 USER = getpass.getuser()
 BIND = {

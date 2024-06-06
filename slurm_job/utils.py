@@ -19,6 +19,8 @@ def wait_for_file(file_path: Path, timeout: datetime.timedelta, interval: float 
             )
         time.sleep(interval)
 
+    print(f"File {file_path} appeared after {datetime.datetime.now() - start}")
+
 
 def tail_output(file_path: Path, name: str = "", end_pattern: str = END_OF_JOB) -> threading.Event:
     """

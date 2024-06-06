@@ -11,7 +11,7 @@ from typing import Any, Callable, Union
 
 import cloudpickle
 
-from pyjob.utils import END_OF_JOB, wait_for_file
+from slurm_job.utils import END_OF_JOB, wait_for_file
 
 # Note: Python script template must always use single quotes for string literals
 PYTHON_SCRIPT = """

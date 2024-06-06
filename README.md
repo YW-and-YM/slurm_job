@@ -1,11 +1,11 @@
-# PyJob
+# Slurm Job
 
-A simple library to run any python function as a job, designed for XENONnT experiment but can be used for any other purpose.
+A simple library to run any python function as a SLURM job, designed for XENONnT experiment but can be used for any other purpose.
 
 ## Installation
 
 ```bash
-pip install https://github.com/Microwave-WYB/pyjob.git
+pip install https://github.com/Microwave-WYB/slurm_job.git
 ```
 
 ## Usage (For XENONnT users)
@@ -15,8 +15,8 @@ pip install https://github.com/Microwave-WYB/pyjob.git
 ```python
 import datetime
 
-from pyjob.slurm import SlurmOptions
-from pyjob.xenon_slurm import xenon_job
+from slurm_job.slurm import SlurmOptions
+from slurm_job.xenon_slurm import xenon_job
 
 
 @xenon_job(
@@ -44,7 +44,7 @@ Return: 3
 ```
 Where `slurm` describes the type of job, `40125577` is the job id, `add` is the function name, and `3` is the return value.
 
-Check [here](./pyjob/slurm.py) for all available options. The options are equivalent to the options in the `sbatch` command. Refer to the [Slurm documentation](https://slurm.schedmd.com/sbatch.html) for more details.
+Check [here](./slurm_job/slurm.py) for all available options. The options are equivalent to the options in the `sbatch` command. Refer to the [Slurm documentation](https://slurm.schedmd.com/sbatch.html) for more details.
 
 ### Error handling:
 
@@ -73,7 +73,7 @@ Submitted batch job 40125621
 slurm-40125621-fail | Traceback (most recent call last):
 slurm-40125621-fail |   File "<string>", line 17, in <module>
 slurm-40125621-fail |   File "<string>", line 13, in <module>
-slurm-40125621-fail |   File "/home/yuem/pyjob/test.py", line 33, in fail
+slurm-40125621-fail |   File "/home/yuem/slurm_job/test.py", line 33, in fail
 slurm-40125621-fail |     raise ValueError("This job will fail")
 slurm-40125621-fail | ValueError: This job will fail
 ValueError: This job will fail
@@ -81,17 +81,17 @@ ValueError: This job will fail
 The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/home/yuem/pyjob/test.py", line 36, in <module>
+  File "/home/yuem/slurm_job/test.py", line 36, in <module>
     fail()
-  File "/home/yuem/pyjob/pyjob/xenon_slurm.py", line 74, in wrapper
+  File "/home/yuem/slurm_job/slurm_job/xenon_slurm.py", line 74, in wrapper
     return job.run()
-  File "/home/yuem/pyjob/pyjob/slurm.py", line 181, in run
+  File "/home/yuem/slurm_job/slurm_job/slurm.py", line 181, in run
     result = self.result()
-  File "/home/yuem/pyjob/pyjob/core.py", line 170, in result
+  File "/home/yuem/slurm_job/slurm_job/core.py", line 170, in result
     return self._load_return()
-  File "/home/yuem/pyjob/pyjob/core.py", line 143, in _load_return
+  File "/home/yuem/slurm_job/slurm_job/core.py", line 143, in _load_return
     raise JobFailedError(
-pyjob.core.JobFailedError: Job fail with id 40125621 failed with exception: This job will fail
+slurm_job.core.JobFailedError: Job fail with id 40125621 failed with exception: This job will fail
 ```
 
 ### Define custom decorator:
@@ -103,8 +103,8 @@ This simplifies the code and makes it easier to maintain.
 import datetime
 from functools import partial
 
-from pyjob.slurm import SlurmOptions
-from pyjob.xenon_slurm import xenon_job
+from slurm_job.slurm import SlurmOptions
+from slurm_job.xenon_slurm import xenon_job
 
 my_job = partial(
     xenon_job,

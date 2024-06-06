@@ -1,6 +1,6 @@
 import argparse
 
-from pyjob.slurm import watch_slurm_jobs
+from slurm_job.slurm import watch_slurm_jobs
 
 
 def main():
@@ -14,6 +14,7 @@ def main():
     args = parser.parse_args()
 
     watch_slurm_jobs(args.directory)
+
 
 if __name__ == "__main__":
     main()

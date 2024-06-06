@@ -15,8 +15,8 @@ from simple_slurm import Slurm
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-from pyjob.core import FunctionCall, Job, Template
-from pyjob.utils import tail_output
+from slurm_job.core import FunctionCall, Job, Template
+from slurm_job.utils import tail_output
 
 logger = logging.getLogger(__name__)
 

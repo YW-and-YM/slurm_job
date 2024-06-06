@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "pyjob"
+name = "slurmjob"
 version = "0.1.0"
 description = ""
 authors = ["Yibo Wei <david_wyb2001@outlook.com>"]

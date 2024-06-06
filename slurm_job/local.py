@@ -9,7 +9,7 @@ import sys
 from functools import wraps
 from typing import Any, Callable, Union
 
-from pyjob.core import FunctionCall, Job, Template
+from slurm_job.core import FunctionCall, Job, Template
 
 
 class LocalJob(Job):
@@ -24,12 +24,10 @@ class LocalJob(Job):
         super().__init__(function_call, script_template, timeout)
 
     def submit(self) -> int:
-        with subprocess.Popen(
-            self.script, shell=True, stdout=sys.stdout, stderr=sys.stderr
-        ) as proc:
-            self.status.set_start()
-            self.id = proc.pid
-            return self.id
+        proc = subprocess.Popen(self.script, shell=True, stdout=sys.stdout, stderr=sys.stderr)
+        self.status.set_start()
+        self.id = proc.pid
+        return self.id
 
 
 def local_job() -> Callable[..., Any]:

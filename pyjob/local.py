@@ -7,7 +7,7 @@ import datetime
 import subprocess
 import sys
 from functools import wraps
-from typing import Callable, Union
+from typing import Any, Callable, Union
 
 from pyjob.core import FunctionCall, Job, Template
 
@@ -24,18 +24,20 @@ class LocalJob(Job):
         super().__init__(function_call, script_template, timeout)
 
     def submit(self) -> int:
-        proc = subprocess.Popen(self.script, shell=True, stdout=sys.stdout, stderr=sys.stderr)
-        self.status.set_start()
-        self.id = proc.pid
-        return self.id
+        with subprocess.Popen(
+            self.script, shell=True, stdout=sys.stdout, stderr=sys.stderr
+        ) as proc:
+            self.status.set_start()
+            self.id = proc.pid
+            return self.id
 
 
-def local_job():
+def local_job() -> Callable[..., Any]:
     """Decorator to create a local job."""
 
-    def decorator(func: Callable):
+    def decorator(func: Callable[..., Any]):
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             function_call = FunctionCall(func, args, kwargs)
             job = LocalJob(function_call)
             return job.run()

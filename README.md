@@ -5,7 +5,7 @@ A simple library to run any python function as a SLURM job, designed for XENONnT
 ## Installation
 
 ```bash
-pip install https://github.com/Microwave-WYB/slurm_job.git
+pip install slurm_job
 ```
 
 ## Usage (For XENONnT users)

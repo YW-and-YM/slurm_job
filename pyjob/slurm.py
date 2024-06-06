@@ -204,9 +204,11 @@ def slurm_job(
 
     Args:
         options (SlurmOptions, optional): Slurm options. Defaults to SlurmOptions().
-        script_template (Union[str, Template], optional): Template for job script. Defaults to Template().
+        script_template (Union[str, Template], optional): Template for job script.
+                Defaults to Template().
         timeout (datetime.timedelta, optional): Timeout. Defaults to datetime.timedelta(minutes=10).
-        wait (bool, optional): Set to False to return with job id immediately after submit. Defaults to True.
+        wait (bool, optional): Set to False to return with job id immediately after submit.
+                Defaults to True.
 
     Returns:
         Callable[..., Any]: Decorated function.

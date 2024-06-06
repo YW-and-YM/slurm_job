@@ -4,9 +4,10 @@ import base64
 import datetime
 import tempfile
 from dataclasses import dataclass
+from enum import Enum
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Literal, Union
+from typing import Any, Callable, Union
 
 import cloudpickle
 
@@ -76,9 +77,16 @@ class FunctionCall:
         return base64.b64encode(cloudpickle.dumps(func)).decode()
 
 
+class StatusCode(Enum):
+    PENDING = 1
+    RUNNING = 2
+    COMPLETED = 3
+    FAILED = 4
+
+
 @dataclass
 class JobStatus:
-    status: Literal["PENDING", "RUNNING", "COMPLETED", "FAILED"]
+    status: StatusCode
     create_time: datetime.datetime
     start_time: Union[datetime.datetime, None]
     end_time: Union[datetime.datetime, None]
@@ -86,12 +94,12 @@ class JobStatus:
     def set_start(self) -> None:
         """Set the start time of the job."""
         self.start_time = datetime.datetime.now()
-        self.status = "RUNNING"
+        self.status = StatusCode.RUNNING
 
     def set_end(self, success: bool = True) -> None:
         """Set the end time of the job."""
         self.end_time = datetime.datetime.now()
-        self.status = "COMPLETED" if success else "FAILED"
+        self.status = StatusCode.COMPLETED if success else StatusCode.FAILED
 
 
 class JobFailedError(Exception):
@@ -118,7 +126,7 @@ class Job:
         self.function_call = function_call
         self.script_template = script_template
         self.timeout = timeout
-        self.status = JobStatus("PENDING", datetime.datetime.now(), None, None)
+        self.status = JobStatus(StatusCode.PENDING, datetime.datetime.now(), None, None)
         self.return_path = Path(tempfile.mktemp(dir="./", prefix="ret_"))
         self.name: str = self.function_call.func.__name__
         self.id: Any = None

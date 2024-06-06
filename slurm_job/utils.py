@@ -1,3 +1,5 @@
+"""Utility functions for file handling"""
+
 import datetime
 import threading
 import time

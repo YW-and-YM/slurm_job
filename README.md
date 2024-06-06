@@ -13,36 +13,36 @@ pip install https://github.com/Microwave-WYB/pyjob.git
 ### Basic usage:
 
 ```python
-from pyjob.slurm import slurm_job
-from pyjob.xenon_templates import xenon_template
+import datetime
 
-options = SlurmOptions(
-    account="pi-lgrandi",
-    partition="xenon1t",
-    time="1:00:00",
-    mem_per_cpu="100M",
-    cpus_per_task=1,
-    output="job.out",
+from pyjob.slurm import SlurmOptions
+from pyjob.xenon_slurm import slurm_job
+
+
+@slurm_job(
+    options=SlurmOptions(
+        partition="xenon1t", time="10:00", mem_per_cpu="100M", cpus_per_task=1, output="job.out"
+    ),
+    singularity_image="xenonnt-2024.04.1.simg",
+    is_dali=False,
+    timeout=datetime.timedelta(seconds=100),
 )
-
-template = xenon_template(singularity_image="xenonnt-2024.04.1.simg", is_dali=False)
-
-
-@slurm_job(options=options, script_template=template, timeout=datetime.timedelta(seconds=60))
 def add(a, b):
-    print(a + b)
+    print("Adding:", a, b)
     return a + b
 
-print("return:", add(1, 2))
+
+ret = add(1, 2)
+print("Return:", ret)
 ```
 Output:
 ```
-Submitted batch job 38996399
+Submitted batch job 40125577
 
-slurm-38996399-add | 3
-return: 3
+slurm-40125577-add | Adding: 1 2
+Return: 3
 ```
-Where `slurm` describes the type of job, `38996399` is the job id, `add` is the function name, and `3` is the return value.
+Where `slurm` describes the type of job, `40125577` is the job id, `add` is the function name, and `3` is the return value.
 
 ### Error handling:
 
@@ -57,16 +57,30 @@ fail()
 ```
 Output will be something like:
 ```
-Submitted batch job 38996399
+Submitted batch job 40125621
 
-... # stack trace for the JobFailedError
-pyjob.core.JobFailedError: Job add with id 38996399 failed with exception: This job will fail
-slurm-38996399-fail | Traceback (most recent call last):
-slurm-38996399-fail |   File "<stdin>", line 14, in <module>
-slurm-38996399-fail |   File "<stdin>", line 10, in <module>
-slurm-38996399-fail |   File "/home/user/test/somefile.py", line 6, in fail
-slurm-38996399-fail |     raise ValueError("This job will fail")
-slurm-38996399-fail | ValueError: This job will fail
+slurm-40125621-fail | Traceback (most recent call last):
+slurm-40125621-fail |   File "<string>", line 17, in <module>
+slurm-40125621-fail |   File "<string>", line 13, in <module>
+slurm-40125621-fail |   File "/home/yuem/pyjob/test.py", line 33, in fail
+slurm-40125621-fail |     raise ValueError("This job will fail")
+slurm-40125621-fail | ValueError: This job will fail
+ValueError: This job will fail
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/yuem/pyjob/test.py", line 36, in <module>
+    fail()
+  File "/home/yuem/pyjob/pyjob/xenon_slurm.py", line 74, in wrapper
+    return job.run()
+  File "/home/yuem/pyjob/pyjob/slurm.py", line 181, in run
+    result = self.result()
+  File "/home/yuem/pyjob/pyjob/core.py", line 170, in result
+    return self._load_return()
+  File "/home/yuem/pyjob/pyjob/core.py", line 143, in _load_return
+    raise JobFailedError(
+pyjob.core.JobFailedError: Job fail with id 40125621 failed with exception: This job will fail
 ```
 
 ### Advanced usage (with Jupiter notebook started as a Slurm job):

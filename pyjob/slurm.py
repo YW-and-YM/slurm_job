@@ -199,7 +199,18 @@ def slurm_job(
     timeout: datetime.timedelta = datetime.timedelta(minutes=10),
     wait: bool = True,
 ):
-    """Decorator to submit a function as a Slurm job."""
+    """
+    Decorator to submit a function as a Slurm job.
+
+    Args:
+        options (SlurmOptions, optional): Slurm options. Defaults to SlurmOptions().
+        script_template (Union[str, Template], optional): Template for job script. Defaults to Template().
+        timeout (datetime.timedelta, optional): Timeout. Defaults to datetime.timedelta(minutes=10).
+        wait (bool, optional): Set to False to return with job id immediately after submit. Defaults to True.
+
+    Returns:
+        Callable[..., Any]: Decorated function.
+    """
 
     def decorator(func: Callable):
         @wraps(func)
@@ -209,8 +220,11 @@ def slurm_job(
             if wait:
                 return job.run()
             output_file = Path(options.get("output", f"slurm-{job.id}.out"))
-            rich.print(f"Job {job.id} output will be written to {output_file}")
-            return job.submit()
+            job_id = job.submit()
+            rich.print(f"Submitted job {job_id} for {func.__name__}")
+            rich.print(f"Logging output to {output_file.absolute()}")
+            rich.print(f"Return value will be pickled to {job.return_path.absolute()}")
+            return job_id
 
         return wrapper
 
@@ -218,6 +232,8 @@ def slurm_job(
 
 
 class SlurmJobHandler(FileSystemEventHandler):
+    """Handler for the watchdog managed slurm jobs."""
+
     def on_created(self, event: FileSystemEvent) -> None:
         if not event.is_directory and event.src_path.endswith(".sh"):
             file = Path(event.src_path)

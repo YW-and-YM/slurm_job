@@ -2,11 +2,10 @@
 
 import datetime
 import getpass
-from functools import wraps
 from typing import Any, Callable
 
-from pyjob.core import FunctionCall, Template
-from pyjob.slurm import SlurmJob, SlurmOptions
+from pyjob.core import Template
+from pyjob.slurm import SlurmOptions, slurm_job
 
 USER = getpass.getuser()
 BIND = {
@@ -56,23 +55,18 @@ def xenon_template(singularity_image: str, is_dali=False) -> str:
     )
 
 
-def slurm_job(
+def xenon_job(
     options: SlurmOptions = SlurmOptions(),
     singularity_image: str = "xenonnt-2024.04.1.simg",
     is_dali: bool = False,
     timeout: datetime.timedelta = datetime.timedelta(minutes=10),
+    wait: bool = True,
 ) -> Callable[..., Any]:
     """Decorator to submit a function as a Slurm job."""
 
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            function_call = FunctionCall(func, args, kwargs)
-            job = SlurmJob(
-                function_call, xenon_template(singularity_image, is_dali), timeout, options
-            )
-            return job.run()
-
-        return wrapper
-
-    return decorator
+    return slurm_job(
+        options=options,
+        script_template=xenon_template(singularity_image, is_dali),
+        timeout=timeout,
+        wait=wait,
+    )

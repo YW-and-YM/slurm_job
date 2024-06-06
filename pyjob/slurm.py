@@ -138,12 +138,35 @@ class SlurmJob(Job):
         script_template: Union[str, Template] = Template(),
         timeout: datetime.timedelta = datetime.timedelta(minutes=10),
         options: SlurmOptions = SlurmOptions(),
-        listener_target_dir: Optional[Path] = None,
+        watchdog_dir: Optional[Path] = None,
     ):
         super().__init__(function_call, script_template, timeout)
         self.options = options
         self.name = self.options.get("job_name", self.function_call.func.__name__)
-        self.listener_target_dir = listener_target_dir
+        self.watchdog_dir = watchdog_dir
+
+    def _submit_sbatch(self, job: Slurm) -> None:
+        """Submit the job using sbatch."""
+        self.id = job.sbatch()
+        self.status.set_start()
+
+    def _submit_watchdog(self, job: Slurm) -> None:
+        """Submit the job using the watchdog."""
+        target_dir = self.watchdog_dir or Path("slurm_jobs")
+        if self.watchdog_dir and not self.watchdog_dir.exists():
+            target_dir.mkdir(parents=True)
+        elif self.watchdog_dir and not self.watchdog_dir.is_dir():
+            raise ValueError(f"{self.watchdog_dir} is not a directory")
+        # generate a unique filename
+        script_file = target_dir / f"slurm-{uuid.uuid4()}.sh"
+        script_file.write_text(job.script(), encoding="utf-8")
+        id_file = script_file.with_suffix(".id")
+        while not id_file.exists():
+            time.sleep(0.5)
+        self.id = int(id_file.read_text(encoding="utf-8").strip())
+        id_file.unlink()
+        if self.id < 1:
+            raise SlurmError(f"Error submitting job:\n{job.script()}")
 
     def submit(self) -> int:
         """Submit the job."""
@@ -151,24 +174,9 @@ class SlurmJob(Job):
         job = Slurm(**self.options)
         job.add_cmd("bash", "-c", self.script)
         if has_sbatch:
-            self.id = job.sbatch()
-            self.status.set_start()
+            self._submit_sbatch(job)
         else:
-            target_dir = self.listener_target_dir or Path("slurm_jobs/listener")
-            if self.listener_target_dir and not self.listener_target_dir.exists():
-                target_dir.mkdir(parents=True)
-            elif self.listener_target_dir and not self.listener_target_dir.is_dir():
-                raise ValueError(f"{self.listener_target_dir} is not a directory")
-            # generate a unique filename
-            script_file = target_dir / f"slurm-{uuid.uuid4()}.sh"
-            script_file.write_text(job.script(), encoding="utf-8")
-            id_file = script_file.with_suffix(".id")
-            while not id_file.exists():
-                time.sleep(0.5)
-            self.id = int(id_file.read_text(encoding="utf-8").strip())
-            id_file.unlink()
-            if self.id < 1:
-                raise SlurmError(f"Error submitting job:\n{job.script()}")
+            self._submit_watchdog(job)
         return self.id
 
     def run(self) -> Any:
@@ -189,6 +197,7 @@ def slurm_job(
     options: SlurmOptions = SlurmOptions(),
     script_template: Union[str, Template] = Template(),
     timeout: datetime.timedelta = datetime.timedelta(minutes=10),
+    wait: bool = True,
 ):
     """Decorator to submit a function as a Slurm job."""
 
@@ -197,7 +206,11 @@ def slurm_job(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             function_call = FunctionCall(func, args, kwargs)
             job = SlurmJob(function_call, script_template, timeout, options)
-            return job.run()
+            if wait:
+                return job.run()
+            output_file = Path(options.get("output", f"slurm-{job.id}.out"))
+            rich.print(f"Job {job.id} output will be written to {output_file}")
+            return job.submit()
 
         return wrapper
 

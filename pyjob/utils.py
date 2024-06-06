@@ -43,7 +43,7 @@ def tail_output(file_path: Path, name: str = "", end_pattern: str = END_OF_JOB) 
 
         # Wait for the file to exist
         while not file_path.exists():
-            time.sleep(0.1)
+            time.sleep(1)
 
         # Tail the file
         for line in sh.Command("tail")("-f", file_path, _iter=True):  # type: ignore
